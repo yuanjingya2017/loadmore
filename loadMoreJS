@@ -1,0 +1,178 @@
+//问题2 不能依赖jquery
+//问题3 方法不能识别？
+(function () {
+    var defaults = {
+        container: 'body',
+        page: 1,
+        pageSize: 20,
+        height: window.innerHeight,//获取窗口的高度
+        pageNumParam: 'page',
+        pageSizeParam: 'pageSize',
+        dataUrl: '',
+        data: {},
+        jsonToDom: function () {
+        },
+        fn: function (data) {
+        },
+        finishFunc: function (data) {
+        },
+        showLoadMsg: function () {
+        },
+        hideLoadMsg: function () {
+        }
+    };
+    function loadMoreJS(options) {
+        this.options = Object.assign(defaults, options || {});//参数合并
+        this.init();//初始化
+    };
+    loadMoreJS.prototype = {
+
+        constructor: loadMoreJS,
+        init: function () {
+            this.initUI();
+            this.appendLoadImg();
+            this.initFirstPage();
+            this.doScroll();
+
+        },
+        initUI: function () {
+            this.loading = false;
+            this.loadover = false;
+            this.noDataDis = false;
+            this.TimeoutFlag = null;
+            this.time = 0;
+            this.containerObj = document.getElementsByTagName(this.options.container)[0]||document.getElementsByClassName(this.options.container)[0]||document.getElementById(this.options.container);
+            console.log(this.containerObj,document.getElementsByTagName(this.options.container)[0],document.getElementsByClassName(this.options.container)[0],document.getElementById(this.options.container))
+        },
+        appendLoadImg: function () {
+            var _this = this;
+            var loadImg = document.getElementsByClassName('loadingImg')[0];
+            if (!loadImg.length) {//图片的长度为0？？？
+                _this.loading = true;//加载中图片显示
+            }
+        },
+        initFirstPage: function () {
+            var _this = this;
+            _this.ajaxFun();
+        },
+        doScroll: function () {
+
+            var _this = this;
+            console.log(this.options.height)
+            _this.containerObj.style.cssText += ";height:"+this.options.height + "px;overflow:auto";
+            _this.appendLoadImg();
+            _this.containerObj.addEventListener("scroll", function (e, args) {
+                console.log('scroll');
+                args = args || {};
+                _this.time = args.time > 0 || args.time === 0 ? args.time : 300;
+
+                if (_this.time === 0) {
+                    _this.doGetData();
+                    return;
+                }
+                if (_this.TimeoutFlag) {
+                    window.clearTimeout(_this.TimeoutFlag);
+                    _this.TimeoutFlag = null;
+                }
+                _this.TimeoutFlag = window.setTimeout(function () {
+                    _this.doGetData();
+                }, _this.time);
+            });
+        },
+        doGetData: function () {
+            var _this = this;
+            if (_this.getScrollHeight() || _this.loading || _this.isFinish || _this.TimeoutFlag == null) {
+                return;
+            }
+            _this.showLoadingMsg();
+            _this.ajaxFun();
+
+        },
+        getScrollHeight: function () {
+            var _this = this;
+            //这里需要做判断 看是id还是body 还是tagName 或者className
+            console.log(_this.containerObj)
+                                                                //???
+            console.log(_this.containerObj.scrollHeight,window.innerHeight,_this.containerObj.scrollHeight)
+            var aScrollHeight = !_this.containerObj.scrollHeight ? window.innerHeight : _this.containerObj.scrollHeight,
+                aScrollTop = _this.containerObj.scrollTop,//到顶部的距离
+                aHeight = _this.containerObj.innerHeight;
+            console.log(aScrollTop,111111111)
+            if (aScrollTop + aHeight + 50 < aScrollHeight) {
+                return true;
+            }
+        },
+        showLoadingMsg: function (msg) {
+            var _this = this;
+            _this.loading = true;
+            if (typeof _this.options.showLoadMsg == 'function') {
+                _this.options.showLoadMsg();
+            }
+        },
+        ajaxFun: function () {
+
+            var _this = this;
+            var postData = {};
+            postData[_this.options.pageNumParam] = _this.options.page;
+            postData[_this.options.pageSizeParam] = _this.options.pageSize;
+
+            console.log(_this.options.dataUrl)
+            var url = _this.options.dataUrl +'&page='+_this.options.page;
+            ajax(url,function (data) {
+                var data = JSON.parse(data);
+                    if(typeof _this.options.filterListFunc === 'function') {//对返回的数据做处理
+                        data = _this.options.filterListFunc(data);
+                    } else {
+                        data = data.goodslist;
+                        console.log(data)
+                    }
+                    //数据加载完毕把状态位置了                              对象数组？
+                    if (!data || (Object.prototype.toString.call(data) === '[object Array]' && !data.length)) {
+                        _this.isFinish = true;//显示 没有数据  或者加载完毕
+                        _this.showLoadingMsg(window.parseInt(postData[_this.options.pageNumParam]) <= 1 ? _this.options.firstLoadNoDataMsg : _this.options.finishMsg);
+                        console.log(1111)
+                        return;
+                    }
+
+
+                    //插入数据
+                var text = document.createElement(text);
+                    text = JSON.stringify(data);
+                var a = document.createElement('div');
+                    a.innerHTML = text;
+                _this.containerObj.appendChild(a);
+                    console.log(22222);
+                    //页数增加
+                    _this.options.page++;
+                    _this.hideLoadingMsg();
+
+                    if (typeof _this.fn == 'function') {
+                        _this.options.fn(data);
+                    }
+
+                    if (typeof _this.options.finishFunc) {
+                        _this.isFinish = _this.options.finishFunc(data);
+                        if (_this.isFinish === true) {
+                            _this.showLoadingMsg(_this.options.finishMsg);
+                        }
+                    }
+                    _this.isLoading = false;
+            });
+        },
+
+        hideLoadingMsg: function () {
+            var _this = this;
+            _this.loading = false;
+            if (typeof _this.options.hideLoadMsg == 'function') {
+                _this.options.hideLoadMsg();
+            }
+        },
+    };
+
+    if (typeof module !== 'undefined' && module && module.exports) {
+        module.exports = loadMoreJS;
+    } else {
+        window.fe = window.fe || {};
+        window.fe.loadMoreJS = loadMoreJS;
+    }
+})();
